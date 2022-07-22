@@ -3,4 +3,23 @@ log/
 
 __pycache__/
 .idea/
-
+test/
+plot/
+param_grad/
+gdelete/
+amodel_sample/
+checkpoint/
+2_11_save_all/
+npy_Matome/
+transformer/Models_old.py
+transformer/trainvecModel.py
+transformer/THPModel.py
+transformer/poolModel.py
+*.npy
+argtest.py
+corr.py
+jisin_plot.py
+load_tau_loglike.py
+*.pth
+tau_kukan_plot.py
+tru_hat_plot.py
