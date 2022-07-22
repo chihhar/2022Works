@@ -162,7 +162,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.svg", bbox_inches='tight', pad_inches=0)
         plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.pdf", bbox_inches='tight', pad_inches=0)
         plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.png", bbox_inches='tight', pad_inches=0)
-        pdb.set_trace()
+        
         
         plt.clf()
         plt.figure(figsize=(10,10))
@@ -488,7 +488,7 @@ def synthetic_plot(model, plot_data, opt):
             
             event_num+=event_time.shape[0]
             plt.scatter(train_target.cpu(),prediction.cpu(),c='blue')                
-        pdb.set_trace()
+        
         gosa=abs(target_history-prediction_history)
         len=gosa.shape[0]
         gosa.sort()
@@ -536,14 +536,14 @@ def synthetic_plot(model, plot_data, opt):
         gosa.sort()
         hako=np.array([0.25,0.5,0.75])
         print(gosa[(len*hako).astype(int)])
-        print(np.sqrt((((gosa-gosa.mean())**2).sum).gosa.shape[0]))
+        print(np.sqrt((((gosa-gosa.mean())**2).sum())/gosa.shape[0]))
         
         print(np.sqrt((((prediction_history-prediction_history.mean())**2).sum())/prediction_history.shape[0]))
         sxx=(((target_history-target_history.mean())**2).sum())/target_history.shape[0]  
         syy=(((prediction_history-prediction_history.mean())**2).sum())/prediction_history.shape[0]
         sxy=(((target_history-target_history.mean())*(prediction_history-prediction_history.mean())).sum())/prediction_history.shape[0]
         corr=sxy/(np.sqrt(sxx)*np.sqrt(syy))
-        pdb.set_trace()
+        
         print(corr)     
 def plot_learning_curve(train_loss_his,valid_loss_his,opt):
     plt.clf()
