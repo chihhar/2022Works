@@ -1,5 +1,6 @@
 #############################
 提案法フォルダ: /data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process
+
 Option:
     -gene: データの種類 ex."h1","jisin","911"
     --pre_attn: PreAttention
@@ -21,14 +22,23 @@ Option:
     -device_num: デバイス番号
 
     -imp: メモ
+######################################
+######################################
 
 Hawkes過程:
     学習あり:python Main.py -gene=h1 --pre_attn --phase --train
     テスト:python Main.py -gene=h1 --pre_attn --phase
 
+######################################
+######################################
+
 カリフォルニア地震：　"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/date_jisin.90016"
     学習:python Main.py --pre_attn -gene=jisin --phase --train
     テスト:python Main.py --pre_attn -gene=jisin --phase
+
+######################################
+######################################
+
 Emergency Call:
     #100住所すべて
     学習ありpython Main.py --pre_attn -gene=911_All --phase --train
@@ -57,8 +67,10 @@ Emergency Call:
     train_data:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_train.pkl"
     valid:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_valid.pkl"
     test:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_test.pkl"
+
 ######################################
 ######################################
+
 THPフォルダ: /data1/nishizawa/Desktop/THP_compare/Transformer-Hawkes-Process
 Hawkes過程
     学習:python Main.py -gene=h1  --pre_attn --train
@@ -68,6 +80,7 @@ Hawkes過程
     テスト:python Main.py -gene=jisin --pre_attn
 
 #############################
+
 Main.py:訓練やテストの実行
 
 Transformer/Model.py: 
