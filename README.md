@@ -1,35 +1,82 @@
-# Transformer Hawkes Process
+#############################
+提案法フォルダ: /data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process
+Option:
+    -gene: データの種類 ex."h1","jisin","911"
+    --pre_attn: PreAttention
+    --phase: Phase分け学習
+    --grad_log: 勾配logの保存
+    
+    -trainvec_num: 系列代表ベクトルの個数 
+    -pooling_k: anchorベクトルの個数 
+    
+    -d_model: 時間エンコーディング次元
+    -d_k: Key次元
+    -d_v: Value次元
+    -n_head: Attentionヘッド数
+    -d_inner_hid: Attention後のFN層の次元
+    -n_layers: Attentionの繰り返し
+    -linear_num: 非線形変換の繰り返し
 
-Source code for [Transformer Hawkes Process (ICML 2020)](https://arxiv.org/abs/2002.09291).
+    -loss_scale: MAEとloglikelihood比率
+    -device_num: デバイス番号
 
-# Run the code
+    -imp: メモ
 
-### Dependencies
-* Python 3.7.
-* [Anaconda](https://www.anaconda.com/) contains all the required packages.
-* [PyTorch](https://pytorch.org/) version 1.4.0.
+Hawkes過程:
+    学習あり:python Main.py -gene=h1 --pre_attn --phase --train
+    テスト:python Main.py -gene=h1 --pre_attn --phase
 
-### Instructions
-1. Put the data folder inside the root folder, modify the **data** entry in **run.sh** accordingly. The datasets are available [here](https://drive.google.com/drive/folders/0BwqmV0EcoUc8UklIR1BKV25YR1U).
-2. **bash run.sh** to run the code.
+カリフォルニア地震：　"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/date_jisin.90016"
+    学習:python Main.py --pre_attn -gene=jisin --phase --train
+    テスト:python Main.py --pre_attn -gene=jisin --phase
+Emergency Call:
+    #100住所すべて
+    学習ありpython Main.py --pre_attn -gene=911_All --phase --train
+    テスト:python Main.py --pre_attn -gene=911_All --phase
+    train:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_All100_sliding_train.pkl"
+    valid:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_All100_sliding_valid.pkl"
+    test:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_All100_sliding_test.pkl"
+    
+    #最大の頻度
+    学習あり:python Main.py --pre_attn -gene=911_1 --phase --train
+    テスト:python Main.py --pre_attn -gene=911_1 --phase
+    train_data:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_1_freq_sliding_train.pkl"
+    valid:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_1_freq_sliding_valid.pkl"
+    test:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_1_freq_sliding_test.pkl"
+    
+    #50番目の頻度
+    学習ありpython Main.py --pre_attn -gene=911_50 --phase --train
+    テスト:python Main.py --pre_attn -gene=911_50 --phase
+    train_dat:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_50_freq_sliding_train.pkl"
+    valid:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_50_freq_sliding_valid.pkl"
+    test:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_50_freq_sliding_test.pkl"
+    
+    #100番目の頻度
+    学習あり:python Main.py --pre_attn -gene=911_100 --phase --train
+    テスト:python Main.py --pre_attn -gene=911_100 --phase
+    train_data:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_train.pkl"
+    valid:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_valid.pkl"
+    test:"/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_100_freq_sliding_test.pkl"
+######################################
+######################################
+THPフォルダ: /data1/nishizawa/Desktop/THP_compare/Transformer-Hawkes-Process
+Hawkes過程
+    学習:python Main.py -gene=h1  --pre_attn --train
+    テスト:python Main.py -gene=h1 --pre_attn
+カリフォルニア地震: 
+    学習:python Main.py -gene=jisin --pre_attn --train
+    テスト:python Main.py -gene=jisin --pre_attn
 
-### Note
-* Right now the code only supports single GPU training, but an extension to support multiple GPUs should be easy.
-* The reported event time prediction RMSE and the time stamps provided in the datasets are not of the same unit, i.e., the provided time stamps can be in minutes, but the reported results are in hours.
-* There are several factors that can be changed, beside the ones in **run.sh**:
-  * In **Main.py**, function **train\_epoch**, the event time prediction squared error needs to be properly scaled to stabilize training. In the meantime, also scale the **diff** variable in function **time\_loss** in **Utils.py**.
-  * In **Utils.py**, function **log_likelihood**, users can select whether to use numerical integration or Monte Carlo integration.
-  * In **transformer/Models.py**, class **Transformer**, there is an optional recurrent layer. This  is inspired by the fact that additional recurrent layers can better capture the sequential context, as suggested in [this paper](https://arxiv.org/pdf/1904.09408.pdf). In reality, this may or may not help, depending on the dataset.
+#############################
+Main.py:訓練やテストの実行
 
-# Reference
+Transformer/Model.py: 
+    class Transformer:モデルの定義
+Transformer/Layers.py: EncoderやDecoderLayerの定義
+Transformer/SubLayers.py: SelfAttention,MultiHeadAttentionの定義
+Transformer/Modules.py: Attentionの処理
 
-Please cite the following paper if you use this code.
-
-```
-@article{zuo2020transformer,
-  title={Transformer Hawkes Process},
-  author={Zuo, Simiao and Jiang, Haoming and Li, Zichong and Zhao, Tuo and Zha, Hongyuan},
-  journal={arXiv preprint arXiv:2002.09291},
-  year={2020}
-}
-```
+Utils.py:
+    def log_likelihood:対数尤度の計算
+    def compute_integral_unbiased: モンテカルロ積分
+    def time_loss_ae:予測値の絶対誤差の計算
