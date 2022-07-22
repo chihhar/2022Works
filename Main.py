@@ -10,7 +10,7 @@ import torch.optim as optim
 import pdb
 import transformer.Constants as Constants
 import Utils
-import data.datagen
+
 
 from matplotlib import pyplot as plt
 import plot_code
