@@ -630,3 +630,21 @@ def phase_eventGT_prediction_plot(model, test_data,opt):
     plt.legend(fontsize=18, loc='upper right')
     plt.savefig("./plot/jisin_GT_pred/ID_time"+opt.imp+".svg", bbox_inches='tight', pad_inches=0)
     plt.savefig("./plot/jisin_GT_pred/ID_time"+opt.imp+".png", bbox_inches='tight', pad_inches=0)
+def plot_data_hist(data,opt):
+    plt.clf()
+    GT_his=[]
+    with torch.no_grad():
+        for batch in tqdm(data, mininterval=2,
+                            desc='  - (Validation) ', leave=False):
+                """ prepare data """
+                event_time = batch.to(opt.device, non_blocking=True)
+                train_input = event_time[:,:-1]
+                train_target = event_time[:,-1:]
+                
+                GT_his=np.append(GT_his,train_target.cpu())
+    
+    plt.title(opt.gene)
+    plt.hist(GT_his,bins=100)#911
+    plt.savefig("/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/plot/hist/data"+opt.gene + ".pdf")
+    plt.clf()
+    pdb.set_trace()  

@@ -461,7 +461,8 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
         model_path="checkpoint/tau/"+opt.wp+'.pth'
         model.load_state_dict(torch.load(model_path))
         model.eval()
-        if opt.gene!="jisin":
+        plot_code.plot_data_hist(training_data, opt)
+        if opt.gene=="h1":
             #plot_code.save_npy_synthetic(model,validation_data,opt)
             plot_code.Compare_event_GT_pred(model,test_data,opt)
             plot_code.synthetic_plot(model,validation_data,opt)
