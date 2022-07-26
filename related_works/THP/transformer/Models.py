@@ -84,15 +84,6 @@ class Encoder(nn.Module):
         tem_enc = self.temporal_enc(event_time)#入力の時間エンコーディング
             
         enc_output = torch.zeros(tem_enc.shape,device=self.device)
-        """
-        SS1=tem_enc[0,-2:-1,:]
-        H0=tem_enc[0,:-1,:]
-        
-        for_i=0
-        motonotime=[(self.train_max*1.5) / 1000 * i for i in range(1000)]
-        tensortime=torch.tensor(motonotime).to(event_time.device).unsqueeze(0)
-        temptime=self.temporal_enc(tensortime)
-        """
         
         for enc_layer in self.layer_stack:
             enc_output += tem_enc
@@ -100,41 +91,6 @@ class Encoder(nn.Module):
                 enc_output,
                 non_pad_mask=non_pad_mask,
                 slf_attn_mask=slf_attn_mask)
-        """ 
-            if for_i==0:
-
-                #S'r
-                SD1=enc_output[0,-2:-1,:]
-                SH1=enc_output[0,:-1,:]
-            elif for_i==1:
-                
-                SDD1=enc_output[0,-2:-1,:]
-                #S''
-                SH2=enc_output[0,:-1,:]
-            for_i+=1
-            
-        
-        #enc_output (B,L-1,M)
-        
-        pdb.set_trace()
-        S1_H0=torch.cosine_similarity(SS1,H0)
-        SD1_H1=torch.cosine_similarity(SD1,SH1)
-        SDD1_H2=torch.cosine_similarity(SDD1,SH2)
-        plt.figure(figsize=(8,5))
-        plt.plot(range(S1_H0.size(0)),S1_H0.cpu().detach(),label=r"initial");plt.plot(range(S1_H0.size(0)),SD1_H1.cpu().detach(),label=r"layer1");plt.plot(range(S1_H0.size(0)),SDD1_H2.cpu().detach(),label=r"layer2")
-        plt.xlabel(r"past event index",fontsize=18)
-        plt.ylabel("similarity",fontsize=18)
-        plt.ylim(0.35,1.05)
-        #plt.rc("svg", fonttype="none");
-        plt.legend(fontsize=18)
-        
-        plt.savefig("plot/ronb/THP_Event_normDot_histi_.png")
-        plt.savefig("plot/ronb/THP_Event_normDot_histi_.svg")
-        plt.clf()
-        pdb.set_trace()
-        """
-        #if self.normalize_before==True:
-        #    enc_output = self.layer_norm(enc_output)
         return enc_output
 
 
@@ -143,49 +99,19 @@ class Predictor(nn.Module):
 
     def __init__(self, dim):
         super().__init__()
-        
-        #self.linear1 = nn.Linear(dim, dim, bias=False)#方式3
-        #nn.init.xavier_normal_(self.linear1.weight)
-        #self.relu = nn.ReLU()
-        
         self.linear = nn.Linear(dim, 1, bias=False)
         nn.init.xavier_normal_(self.linear.weight)
         
 
     def forward(self, data):
-        #data = self.linear1(data)
-        #data = self.relu(data)#方式3
-
         return self.linear(data)
-class RNN_layers(nn.Module):
-    """
-    Optional recurrent layers. This is inspired by the fact that adding
-    recurrent layers on top of the Transformer helps language modeling.
-    """
-
-    def __init__(self, d_model, d_rnn):
-        super().__init__()
-
-        self.rnn = nn.LSTM(d_model, d_rnn, num_layers=1, batch_first=True)
-        self.projection = nn.Linear(d_rnn, d_model)
-
-    def forward(self, data, non_pad_mask):
-        lengths = non_pad_mask.squeeze(2).long().sum(1).cpu()
-        pack_enc_output = nn.utils.rnn.pack_padded_sequence(
-            data, lengths, batch_first=True, enforce_sorted=False)
-        
-        temp = self.rnn(pack_enc_output)[0]
-        out = nn.utils.rnn.pad_packed_sequence(temp, batch_first=True)[0]
-
-        out = self.projection(out)
-        return out
 
 class Transformer(nn.Module):
     """ A sequence to sequence model with attention mechanism. """
 
     def __init__(
             self,
-            d_model=256, d_rnn=128, d_inner=1024,
+            d_model=256, d_inner=1024,
             n_layers=4, n_head=4, d_k=64, d_v=64, dropout=0.1,time_step=20,device="cuda:0",train_max=0,normalize_before=True):
         super().__init__()
 
@@ -210,12 +136,8 @@ class Transformer(nn.Module):
         # parameter for the softplus function
         self.beta = nn.Parameter(torch.tensor(1.0))
 
-        # OPTIONAL recurrent layer, this sometimes helps
-        #self.rnn = RNN_layers(d_model, d_rnn)
-
         # prediction of next time stamp
         self.time_predictor = Predictor(d_model)
-        #self.time_predictor = Predictor(d_model*3)
     def forward(self, input_time, target):
         """
         Return the hidden representations and predictions.
@@ -230,14 +152,7 @@ class Transformer(nn.Module):
         
         non_pad_mask = get_non_pad_mask(torch.cat((input_time,target),dim=1))#τ予測に真値が使われないようにするために必要。
         enc_output = self.encoder(torch.cat((input_time,target),dim=1), non_pad_mask=non_pad_mask)# 入力をエンコーダ部へ
-        #enc_output = self.encoder(torch.cat((input_time,target),dim=1), non_pad_mask=None)
-        
-        #enc_output = self.rnn(enc_output, non_pad_mask=non_pad_mask)
         time_prediction = self.time_predictor(enc_output[:,-2:-1,:])
-        
-        #time_pred_decout_flatten = torch.flatten(enc_output[:,-4:-1,:],1)
-        #time_prediction = self.time_predictor(time_pred_decout_flatten)#エンコーダの出力を線形変換によりτ予測　最後の行は未来を見ている。
-        
         return enc_output, time_prediction[:,-1,:] #強度関数に必要な出力, 時間予測, エンコーダの出力
         #/THP
         

@@ -474,7 +474,7 @@ def test_step(model, training_data, validation_data, test_data, optimizer, sched
 ### python Main.py -gene=h1 --train --pre_attn
 ### python Main.py -gene=jisin --pre_attn  --train
 ### python Main.py --train -imp=kanseih2 -batch_size=32 -d_model=64 -d_inner_hid=128 -d_k=16 -d_v=16 -lr=1e-4 --pickle_F
-### python Main.py -imp=paraim -d_model=512 -d_inner_hid=2048 -d_rnn=256
+### python Main.py -imp=paraim -d_model=512 -d_inner_hid=2048 
 #################
 def main():
     """ Main function. """
@@ -486,7 +486,6 @@ def main():
     parser.add_argument('-loss_scale',type=int,default=1)
 
     parser.add_argument('-d_model', type=int, default=64)#512
-    #parser.add_argument('-d_rnn', type=int, default=128)
     parser.add_argument('-d_inner_hid', type=int, default=64)#1024
     parser.add_argument('-d_k', type=int, default=8)#512
     parser.add_argument('-d_v', type=int, default=8)#512
@@ -596,7 +595,6 @@ def main():
     """ prepare model """
     model = Transformer(
         d_model=opt.d_model,
-        #d_rnn=opt.d_rnn,
         d_inner=opt.d_inner_hid,
         n_layers=opt.n_layers,
         n_head=opt.n_head,
