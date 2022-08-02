@@ -25,3 +25,5 @@ tau_kukan_plot.py
 tru_hat_plot.py
 IBISml2022/
 *.pdf
+*.png
+*.svg

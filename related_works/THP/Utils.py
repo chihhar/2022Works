@@ -49,7 +49,7 @@ def compute_integral_unbiased(model, data, input, target):#, gap_f):
     
     return unbiased_integral
 
-def log_likelihood(model, output, input, target):#, gap_f):
+def log_likelihood(model, output, input, target):
     """ Log-likelihood of sequence. """
 
     #B*1*M output

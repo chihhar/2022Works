@@ -5,11 +5,69 @@ import pdb
 import transformer.Models as trm
 from tqdm import tqdm
 from sklearn.manifold import TSNE
-import Main
+import THP
 import math
 import Utils
 import pandas as pd
+def generate_hawkes_modes05():
+    np.random.seed(seed=32)
+    [T,LL,L_TRG1] = simulate_hawkes_modes05(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return  [T,score,L_TRG1]
 
+def simulate_hawkes_modes05(n,mu,alpha,beta,short_thre=1,long_thre=5):
+    T = []
+    LL = []
+    L_TRG1 = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    is_long_mode = 0
+    
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        #step = np.random.exponential(scale=1)/l
+
+        if l_trg1 > long_thre:
+            is_long_mode = 1
+
+        if l_trg1 < short_thre:
+            is_long_mode = 0
+
+        if is_long_mode: # long mode
+            step = step = np.random.exponential(scale=2)/l
+        else: # short mode
+            step = np.random.exponential(scale=0.25)/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            L_TRG1.append(l_trg1)
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+        
+        if count == n:
+            break
+        
+    return [np.array(T),np.array(LL),np.array(L_TRG1)]
 
 def generate_hawkes_modes():
     np.random.seed(seed=32)
@@ -70,24 +128,25 @@ def simulate_hawkes_modes(n,mu,alpha,beta,short_thre=1,long_thre=5):
             break
         
     return [np.array(T),np.array(LL),np.array(L_TRG1)]
-
 def get_generate(data_type):
     if data_type == 'sp':
-        return Main.generate_stationary_poisson()
+        return THP.generate_stationary_poisson()
     elif data_type == 'nsp':
-        return Main.generate_nonstationary_poisson()
+        return THP.generate_nonstationary_poisson()
     elif data_type == 'sr':
-        return Main.generate_stationary_renewal()
+        return THP.generate_stationary_renewal()
     elif data_type == 'nsr':
-        return Main.generate_nonstationary_renewal()
+        return THP.generate_nonstationary_renewal()
     elif data_type == 'sc':
-        return Main.generate_self_correcting()
+        return THP.generate_self_correcting()
     elif data_type == 'h1':
-        return Main.generate_hawkes1()
+        return THP.generate_hawkes1()
     elif data_type == 'h2':
-        return Main.generate_hawkes2()
+        return THP.generate_hawkes2()
     elif data_type == "h_fix":
         return generate_hawkes_modes()
+    elif data_type == "h_fix05":
+        return generate_hawkes_modes05()
 def rolling_matrix(x,time_step):
             x = x.flatten()
             n = x.shape[0]
@@ -127,7 +186,7 @@ def Compare_event_GT_pred(model, test_data, opt):
     model.eval()
     GT_his=[]
     pred_his=[]
-    
+
     with torch.no_grad():
         
 
@@ -138,7 +197,7 @@ def Compare_event_GT_pred(model, test_data, opt):
             test_target = event_time[:,-1:]
             GT_his = np.append(GT_his,np.array(test_target.squeeze(-1).cpu()))
             
-            _, pred, enc_out = model(test_input,test_target)
+            _, pred = model(test_input,test_target)
             pred = pred.reshape(test_target.shape)
             pred_his=np.append(pred_his,pred.cpu())
             """
@@ -175,6 +234,7 @@ def Compare_event_GT_pred(model, test_data, opt):
                             group[-s]="S"+str(model.rep_vector.shape[1]+1-s)+":"+group[-s]
                         plt.colorbar()
                         #plt.yticks(range(attn.shape[3]),group)
+                    pdb.set_trace()
                     
                     plt.savefig("test.png")
                     plt.savefig("plot/kmean_anc_gt_pred/attn/"+opt.method+opt.imp+"_"+str(pred[0].item())+".png")
@@ -224,7 +284,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.plot(range(150),FTPPh1[350:500],c="b",label="Transformer-FT-PP",linestyle="dashed")
         plt.legend(fontsize=18, loc='upper right')
         print("not plot event and predictions of all method")
-        plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.pdf", bbox_inches='tight', pad_inches=0)
+        plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.svg", bbox_inches='tight', pad_inches=0)
         plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.pdf", bbox_inches='tight', pad_inches=0)
         plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodh1.png", bbox_inches='tight', pad_inches=0)
         
@@ -244,6 +304,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.grid()
         plt.savefig("h1testGT.png", bbox_inches='tight', pad_inches=0)
     elif opt.gene=="jisin":
+
         print("synthetic")
         if opt.method=="abstdy_nonrep3":
             np.save("npy_Matome/abstdy_nonrep3.npy",pred_his)
@@ -262,7 +323,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.legend(fontsize=18, loc='upper right')
         #plt.savefig("plot/abstdy/l3andrepvec"+opt.imp+"test.png", bbox_inches='tight', pad_inches=0)
         #plt.savefig("plot/abstdy/l3andrepvec"+opt.imp+"test.pdf", bbox_inches='tight', pad_inches=0)
-        #plt.savefig("plot/abstdy/l3andrepvec"+opt.imp+"test.pdf", bbox_inches='tight', pad_inches=0)
+        #plt.savefig("plot/abstdy/l3andrepvec"+opt.imp+"test.svg", bbox_inches='tight', pad_inches=0)
         TPG=abs(GT_his-FT_PP_pred)
             
         L3_Error = abs(GT_his-rep3_his)
@@ -296,9 +357,10 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.plot(range(150),FT_PP_pred[350:500],c="b",label="Transformer-FT-PP",linestyle="dashed")
         plt.legend(fontsize=18, loc='upper right')
         print("ploted event and predictions of all method,THP,FT-PP,TransformerFT-PP")
-        #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodjisinnonLN.pdf", bbox_inches='tight', pad_inches=0)
+        #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodjisinnonLN.svg", bbox_inches='tight', pad_inches=0)
         #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodjisinnonLN.pdf", bbox_inches='tight', pad_inches=0)
         #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+str(opt.n_layers)+"all_methodjisinnonLN.png", bbox_inches='tight', pad_inches=0)
+        #pdb.set_trace()
         """
         plt.clf()
         plt.figure(figsize=(10,4)) 
@@ -310,7 +372,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.legend(fontsize=18, loc='upper right')
         
         #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+opt.method+opt.imp+".png", bbox_inches='tight', pad_inches=0)
-        #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+opt.method+opt.imp+".pdf", bbox_inches='tight', pad_inches=0)
+        #plt.savefig("plot/kmean_anc_gt_pred/IDtime/"+opt.method+opt.imp+".svg", bbox_inches='tight', pad_inches=0)
         #np.save("THP_pred_his_64_jisin.npy",pred_his)
         #np.save("THP_pred_his_64preh1l4.npy",pred_his)
         #np.save("Transformer_FT-PPh164pre33phl4_tau_pred.npy",pred_his)
@@ -335,7 +397,7 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.ylabel("prediction")
         plt.legend()
         plt.savefig("dalljisin_sct.png", bbox_inches='tight', pad_inches=0)
-        plt.savefig("dalljisin_sct.pdf", bbox_inches='tight', pad_inches=0)
+        plt.savefig("dalljisin_sct.svg", bbox_inches='tight', pad_inches=0)
         
         plt.clf()
         len=TFTPP_AE.shape[0]
@@ -358,7 +420,39 @@ def Compare_event_GT_pred(model, test_data, opt):
         plt.xlabel('methods')
         plt.ylabel('point')
         plt.grid()
-        plt.savefig("ctestGT.pdf", bbox_inches='tight', pad_inches=0)
+        plt.savefig("ctestGT.svg", bbox_inches='tight', pad_inches=0)
+    if opt.gene=="h_fix":
+        plt.clf()
+        plt.figure(figsize=(20,4))
+        plt.xlabel("event iD",fontsize=18)
+        plt.ylabel("elapsed time",fontsize=18)
+        plt.plot(range(300),GT_his[0:300],label="ground-truth")
+        
+        [_,_,L_TRG1]=get_generate(opt.gene)
+        test_LTRG=L_TRG1[(90000+30):]
+        plt.plot(test_LTRG[0:300],linewidth=0.5,label='trig')
+
+        
+        plt.plot(range(300),pred_his[0:300],label="TP",linestyle="dotted")
+        plt.title("THP-hawkesfix")
+    plt.legend(fontsize=18, loc='upper right')
+    if opt.gene=="h_fix05":
+        plt.clf()
+        plt.figure(figsize=(20,4))
+        plt.xlabel("event iD",fontsize=18)
+        plt.ylabel("elapsed time",fontsize=18)
+        plt.plot(range(300),GT_his[0:300],label="ground-truth")
+        pdb.set_trace()
+        [_,_,L_TRG1]=get_generate(opt.gene)
+        test_LTRG=L_TRG1[(90000+30):]
+        #plt.plot(test_LTRG[0:300],linewidth=0.5,label='trig')
+
+        
+        plt.plot(range(300),pred_his[0:300],label="TP",linestyle="dotted")
+        plt.title("THP-hawkesfix")
+    plt.legend(fontsize=18, loc='upper right')
+    plt.savefig("plot/GT_pred/ID_time_"+opt.wp+".pdf", bbox_inches='tight', pad_inches=0)
+
 """
 plt.clf()
 plt.figure(figsize=(10,4))
@@ -469,6 +563,7 @@ def save_npy_synthetic(model, testloader, opt):
     plt.ylabel(r"log-intensity", fontsize=18)
     #plt.title("toy data", fontsize=18)
     plt.legend(fontsize=18)
+    #pdb.set_trace()
     #for i in range(input.shape[0]-1):
     #    plt.scatter(input[i+1].cpu()+cumsum_tau.cpu()[i],np.zeros(opt.time_step-1),color="y")
     #plt.plot(cumsum_tau.cpu(),to_plot_log_l.cpu(),label="true_log_l")
@@ -476,13 +571,15 @@ def save_npy_synthetic(model, testloader, opt):
     #plt.xlabel("Time t")
     #plt.ylabel(r"Conditional_intensity log $\lambda(t|H_t)$")
     
-    #plt.rc("pdf", fonttype="none")
+    #plt.rc("svg", fonttype="none")
     print("atest")
-    plt.savefig("atest.pdf",bbox_inches='tight', pad_inches=0)
-    
+    plt.savefig("atest.svg",bbox_inches='tight', pad_inches=0)
+    pdb.set_trace()
+
     print("end")
 def near_tau_and_vector(model,opt):
     print("系列代表ベクトルに近いtauの探索(廃止)")
+    #pdb.set_trace()
     #Division_Num=int(opt.train_max*4)
     Division_Num=50000
     """
@@ -501,6 +598,7 @@ def near_tau_and_vector(model,opt):
         anchor_near[anc_n]=np.argsort((torch.cosine_similarity(model.anchor_vector[:,anc_n],encoded_time[0,:,:])).cpu().detach().numpy())[::-1]
     rep_near=rep_near.astype(int)
     anchor_near=anchor_near.astype(int)
+    pdb.set_trace()
     [((torch.cosine_similarity(model.anchor_vector[:,0,:],encoded_time[0,:,:])).cpu().detach().numpy()).max(),((torch.cosine_similarity(model.anchor_vector[:,1,:],encoded_time[0,:,:])).cpu().detach().numpy()).max(),((torch.cosine_similarity(model.ancarvector[:,2,:],encoded_time[0,:,:])).cpu().detach().numpy()).max()]
     print((np.array(Division_time)[rep_near])[:,:20])
     print((np.array(Division_time)[anchor_near])[:,:20])
@@ -574,8 +672,8 @@ def synthetic_plot(model, plot_data, opt):
         plt.hist([target_history,prediction_history],range=(0,3), bins=100, alpha = 0.5, label=['True',"Prediction"])
         #plt.hist(prediction_history, bins,alpha = 0.5, label='b')
         plt.legend()
-        plt.rc("pdf", fonttype="none")
-        plt.savefig("plot/syn_hist/hist"+opt.gene+'_'+opt.imp+'_'+str(opt.time_step)+"_"+str(opt.epoch)+'.pdf', bbox_inches='tight', pad_inches=0)
+        plt.rc("svg", fonttype="none")
+        plt.savefig("plot/syn_hist/hist"+opt.gene+'_'+opt.imp+'_'+str(opt.time_step)+"_"+str(opt.epoch)+'.svg', bbox_inches='tight', pad_inches=0)
         plt.savefig("plot/syn_hist/hist"+opt.gene+'_'+opt.imp+'_'+str(opt.time_step)+"_"+str(opt.epoch)+'.png', bbox_inches='tight', pad_inches=0)
         plt.clf()
         
@@ -586,9 +684,9 @@ def synthetic_plot(model, plot_data, opt):
         plt.plot(range(100),target_history[200:300],label="ground-truth")
         plt.plot(range(100),prediction_history[200:300],c="r",label="pred",linestyle="dashed")
         plt.legend(fontsize=18, loc='upper right')
-        #plt.rc("pdf", fonttype="none")
-        plt.savefig("plot/syn_hist/ID_time"+opt.wp+".pdf", bbox_inches='tight', pad_inches=0)
-        plt.savefig("plot/syn_hist/seismic_id_timetau_hat_flatafnorm5_5+ID_time"+opt.imp+".pdf", bbox_inches='tight', pad_inches=0)
+        #plt.rc("svg", fonttype="none")
+        plt.savefig("plot/syn_hist/ID_time"+opt.imp+".svg", bbox_inches='tight', pad_inches=0)
+        plt.savefig("plot/syn_hist/seismic_id_timetau_hat_flatafnorm5_5+ID_time"+opt.imp+".png", bbox_inches='tight', pad_inches=0)
         print(np.sqrt((((target_history-target_history.mean())**2).sum())/target_history.shape[0]))
         gosa=abs(prediction_history-target_history)
         
@@ -617,7 +715,10 @@ def phase_eventGT_prediction_plot(model, test_data,opt):
     p2_pred_history=[]
     p3_pred_history=[]
 
-    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+".pth"))
+
+    model_path="checkpoint/tau/"+opt.gene+'_'+opt.method+'_'+opt.imp+'_'+str(opt.epoch)+"_"+str(opt.time_step)
+    
+    model.load_state_dict(torch.load(opt.wp+"phase1.pth"))
     model.eval()
     with torch.no_grad():
         for batch in tqdm(test_data, mininterval=2,
@@ -633,7 +734,7 @@ def phase_eventGT_prediction_plot(model, test_data,opt):
             GT_history = np.append(GT_history,test_target.cpu())            
             p1_pred_history = np.append(p1_pred_history,prediction.cpu())
     
-    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+"phase2.pth"))
+    model.load_state_dict(torch.load(opt.wp+"phase2.pth"))
     model.eval()
     with torch.no_grad():
         for batch in tqdm(test_data, mininterval=2,
@@ -648,7 +749,7 @@ def phase_eventGT_prediction_plot(model, test_data,opt):
             
             p2_pred_history = np.append(p2_pred_history,prediction.cpu())
 
-    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+"phase3.pth"))
+    model.load_state_dict(torch.load(opt.wp+"phase3.pth"))
     model.eval()
     with torch.no_grad():
         for batch in tqdm(test_data, mininterval=2,
@@ -688,8 +789,10 @@ def phase_eventGT_prediction_plot(model, test_data,opt):
     plt.plot(range(300),p1_pred_history[0:300],label="p1pred",linestyle="dotted")
     plt.plot(range(300),p2_pred_history[0:300],label="p2pred",linestyle="dashed")
     plt.plot(range(300),p3_pred_history[0:300],label="p3pred",linestyle="dashdot")
+    
     plt.legend(fontsize=18, loc='upper right')
-    plt.savefig("./plot/GT_pred/ID_time_"+opt.wp+".pdf", bbox_inches='tight', pad_inches=0)
+    #plt.savefig("./plot/jisin_GT_pred/ID_time"+opt.imp+".svg", bbox_inches='tight', pad_inches=0)
+    plt.savefig("./plot/GT_pred/ID_time"+opt.wp+".pdf", bbox_inches='tight', pad_inches=0)
 def plot_data_hist(data,opt):
     plt.clf()
     GT_his=[]
@@ -707,23 +810,13 @@ def plot_data_hist(data,opt):
     plt.hist(GT_his,bins=100)#911
     plt.savefig("/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/plot/hist/data"+opt.gene + ".pdf")
     plt.clf()
-
+    pdb.set_trace()  
 def t_SNE(model, test_data,opt):
     plt.clf()
-    enc_out_his1=None
-    enc_out_his2=None
-    enc_out_his3=None
-    anc_his1=None
-    anc_his2=None
-    anc_his3=None
+    enc_out_his=None
     GT_his=[]
     pred_his=[]
     last_event=[]
-    last_weight=None
-    anc_all =None
-    rep_all =None
-
-    First_loop_flag=True
     with torch.no_grad():
         for batch in tqdm(test_data, mininterval=2,
                           desc='  - (Validation) ', leave=False):
@@ -732,200 +825,34 @@ def t_SNE(model, test_data,opt):
             #event_time = event_time.to(torch.float)
             train_input = event_time[:,:-1]
             test_target = event_time[:,-1:]
-            GT_his=np.append(GT_his,test_target.cpu())
             last_event = np.append(last_event,train_input[:,-1:].cpu())
+            GT_his=np.append(GT_his,test_target.cpu())
+
             """ forward """
-            _, pred ,enc_out= model(train_input,test_target)
-            pred_his=np.append(pred_his,pred.cpu())
-            anchor_batch = model.anchor_vector.repeat([enc_out.shape[0],1])
-            time_hidden = model.decoder(anchor_batch,k=enc_out,v=enc_out)            
-            time_pred_decout_flatten = torch.flatten(time_hidden,1)
-            if First_loop_flag:
-                enc_out_his1=enc_out[:,-3,:].cpu()
-                enc_out_his2=enc_out[:,-2,:].cpu()
-                enc_out_his3=enc_out[:,-1,:].cpu()
-                rep_all=torch.flatten(enc_out[:,-3:,:],1).cpu()
-
-                anc_his1=time_hidden[:,-3,:].cpu()
-                anc_his2=time_hidden[:,-2,:].cpu()
-                anc_his3=time_hidden[:,-1,:].cpu()
-                anc_all=time_pred_decout_flatten.cpu()
-
-                First_loop_flag=False    
+            enc_out, prediction = model(train_input,test_target)
+            pred_his=np.append(pred_his,prediction.cpu())
+            if enc_out_his is None:
+                enc_out_his=enc_out[:,-2,:].cpu()
             else:
-                enc_out_his1=np.vstack((enc_out_his1,enc_out[:,-3,:].cpu()))
-                enc_out_his2=np.vstack((enc_out_his2,enc_out[:,-2,:].cpu()))
-                enc_out_his3=np.vstack((enc_out_his3,enc_out[:,-1,:].cpu()))
-                rep_all=np.vstack((rep_all,torch.flatten(enc_out[:,-3:,:],1).cpu()))
-                anc_his1=np.vstack((anc_his1,time_hidden[:,-3,:].cpu()))
-                anc_his2=np.vstack((anc_his2,time_hidden[:,-2,:].cpu()))
-                anc_his3=np.vstack((anc_his3,time_hidden[:,-1,:].cpu()))
-                anc_all=np.vstack((anc_all,time_pred_decout_flatten.cpu()))
-    """
+                enc_out_his=np.vstack((enc_out_his,enc_out[:,-2,:].cpu()))
     tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(last_weight)
+    tsne_results = tsne.fit_transform(enc_out_his)
     tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his, cmap='gist_stern')
+    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
     plt.colorbar()
-    file_path="/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/related_works/THP/plot/t_SNE"
-    plt.title("rep1-"+opt.gene)
-    plt.savefig(file_path+"/TSNE_proposed_lastweight_"+opt.wp+".pdf")
+    plt.title("THP-TSNE-"+opt.gene)
+    file_path="/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/related_works/THP/plot/t_SNE/THP"
+    plt.savefig(file_path+"/TSNE_THP_"+opt.gene+".pdf")
     plt.clf()
-    """
-    file_path="/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/related_works/THP/plot/t_SNE"
-
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(enc_out_his1)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
+    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his,cmap='gist_stern')
+    plt.colorbar()
+    plt.title("THP-TSNE-"+opt.gene+"-pred")
+    file_path="/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/related_works/THP/plot/t_SNE/THP"
+    plt.savefig(file_path+"/ph_TSNE_THP_"+opt.gene+".pdf")
+    plt.clf()
+    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event,cmap='gist_stern')
+    plt.colorbar()
+    plt.title("THP-TSNE-"+opt.gene+"-le")
+    file_path="/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/related_works/THP/plot/t_SNE/THP"
+    plt.savefig(file_path+"/le-TSNE_THP_"+opt.gene+".pdf")
     
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep1-"+opt.gene+opt.imp+"-GT")
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_rep_vec1_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep1-"+opt.gene+opt.imp+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_rep_vec1_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep1-"+opt.gene+opt.imp+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_rep_vec1_"+opt.wp+".pdf")
-    
-    plt.clf()
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(enc_out_his2)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep2-"+opt.gene+opt.imp)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_rep_vec2_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep2-"+opt.gene+opt.imp+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_rep_vec2_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep2-"+opt.gene+opt.imp+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_rep_vec2_"+opt.wp+".pdf")
-    plt.clf()
-
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(enc_out_his3)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep3-"+opt.gene+opt.imp)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_rep_vec3_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep3-"+opt.gene+opt.imp+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_rep_vec3_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep3-"+opt.gene+opt.imp+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_rep_vec3_"+opt.wp+".pdf")
-    plt.clf()
-
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(anc_his1)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc1-"+opt.gene+opt.imp)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_anc1_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc1-"+opt.gene+opt.imp+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_anc1_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc1-"+opt.gene+opt.imp+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_anc1_"+opt.wp+".pdf")
-
-    plt.clf()    
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(anc_his2)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc2-"+opt.gene+opt.imp)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_anc2_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc2-"+opt.gene+opt.imp+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_anc2_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc2-"+opt.gene+opt.imp+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_anc2_"+opt.wp+".pdf")    
-    plt.clf()
-
-    
-    
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(anc_his3)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc3-"+opt.gene)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_anc3_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc3-"+opt.gene+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_anc3_"+opt.wp+".pdf")    
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc3-"+opt.gene+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_anc3_"+opt.wp+".pdf")    
-    plt.clf()
-    
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(rep_all)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep_All-"+opt.gene)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_rep_All_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep_All-"+opt.gene+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_rep_All_"+opt.wp+".pdf")    
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("rep_All-"+opt.gene+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/ph_TSNE_proposed_rep_All_"+opt.wp+".pdf")    
-    plt.clf()
-
-    tsne = TSNE(random_state=0,init="pca",learning_rate='auto')
-    tsne_results = tsne.fit_transform(anc_all)
-    tsne_results=pd.DataFrame(tsne_results, columns=['tsne1', 'tsne2'])
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=GT_his,cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc_All-"+opt.gene)
-    plt.savefig(file_path+"/"+opt.gene+"/GT/GT_TSNE_proposed_anc_All_"+opt.wp+".pdf")
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=last_event, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc_All-"+opt.gene+"-last_event")
-    plt.savefig(file_path+"/"+opt.gene+"/last_event/le_TSNE_proposed_anc_All_"+opt.wp+".pdf")    
-    plt.clf()
-    plt.scatter(tsne_results['tsne1'], tsne_results['tsne2'], c=pred_his, cmap='gist_stern')
-    plt.colorbar()
-    plt.title("anc_All-"+opt.gene+"-pred_his")
-    plt.savefig(file_path+"/"+opt.gene+"/pred/phTSNE_proposed_anc_All_"+opt.wp+".pdf")    
-    plt.clf()

@@ -1,7 +1,14 @@
 import os
 import argparse
+#%%
 import numpy as np
 import pandas as pd
+
+
+################################### for generating synthetic data
+from scipy.stats import lognorm,gamma
+from scipy.optimize import brentq
+###################################
 import pickle
 import time
 import torch
@@ -17,8 +24,6 @@ import plot_code
 from transformer.Models import Transformer
 from tqdm import tqdm
 
-from scipy.stats import lognorm,gamma
-from scipy.optimize import brentq
 from datetime import datetime as dt
 
 ######################################################
@@ -31,6 +36,9 @@ def generate_stationary_poisson():
     score = 1
     return [T,score]
 
+######################################################
+### non-stationary poisson process
+######################################################
 def generate_nonstationary_poisson():
     np.random.seed(seed=32)
     L = 20000
@@ -50,6 +58,9 @@ def generate_nonstationary_poisson():
        
     return [T,score]
 
+######################################################
+### stationary renewal process
+######################################################
 def generate_stationary_renewal():
     np.random.seed(seed=32)
     s = np.sqrt(np.log(6*6+1))
@@ -61,6 +72,9 @@ def generate_stationary_renewal():
     
     return [T,score]
 
+######################################################
+### non-stationary renewal process
+######################################################
 def generate_nonstationary_renewal():
     np.random.seed(seed=32)
     L = 20000
@@ -91,6 +105,9 @@ def generate_nonstationary_renewal():
     
     return [T,score]
 
+######################################################
+### self-correcting process
+######################################################
 def generate_self_correcting():
     np.random.seed(seed=32)
     
@@ -118,6 +135,9 @@ def generate_self_correcting():
     
     return [T,score]
 
+######################################################
+### Hawkes process
+######################################################
 def generate_hawkes1():
     np.random.seed(seed=32)
     [T,LL] = simulate_hawkes(100000,0.2,[0.8,0.0],[1.0,20.0])
@@ -129,7 +149,11 @@ def generate_hawkes2():
     [T,LL] = simulate_hawkes(100000,0.2,[0.4,0.4],[1.0,20.0])
     score = - LL[80000:].mean()
     return [T,score]
-
+def generate_eahawkes():
+    np.random.seed(seed=32)
+    [T,LL] = easyend_simulate_hawkes(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return [T,score]
 def simulate_hawkes(n,mu,alpha,beta):
     T = []
     LL = []
@@ -169,6 +193,172 @@ def simulate_hawkes(n,mu,alpha,beta):
         
     return [np.array(T),np.array(LL)]
 
+def easyend_simulate_hawkes(n,mu,alpha,beta):
+    T = []
+    LL = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    threshold=2.1
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        if l > threshold:#lの大きさでステップの大きさが切り替わる。　ランダム性はrandom.rand
+            
+            step = 3.0#い経過時間
+        else:
+            step = 0.5#
+            #step = np.random.exponential()/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+            
+            if count == n:
+                break
+        
+    return [np.array(T),np.array(LL)]
+#%%%
+
+def generate_hawkes_modes05():
+    np.random.seed(seed=32)
+    [T,LL,L_TRG1] = simulate_hawkes_modes05(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return [T,score]
+
+def simulate_hawkes_modes05(n,mu,alpha,beta,short_thre=1,long_thre=5):
+    T = []
+    LL = []
+    L_TRG1 = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    is_long_mode = 0
+    
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        #step = np.random.exponential(scale=1)/l
+
+        if l_trg1 > long_thre:
+            is_long_mode = 1
+
+        if l_trg1 < short_thre:
+            is_long_mode = 0
+
+        if is_long_mode: # long mode
+            step = step = np.random.exponential(scale=2)/l
+        else: # short mode
+            step = np.random.exponential(scale=0.25)/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            L_TRG1.append(l_trg1)
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+        
+        if count == n:
+            break
+        
+    return [np.array(T),np.array(LL),np.array(L_TRG1)]
+    
+def generate_hawkes_modes():
+    np.random.seed(seed=32)
+    [T,LL,L_TRG1] = simulate_hawkes_modes(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return [T,score]
+
+def simulate_hawkes_modes(n,mu,alpha,beta,short_thre=1,long_thre=5):
+    T = []
+    LL = []
+    L_TRG1 = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    is_long_mode = 0
+    
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        #step = np.random.exponential(scale=1)/l
+
+        if l_trg1 > long_thre:
+            is_long_mode = 1
+
+        if l_trg1 < short_thre:
+            is_long_mode = 0
+
+        if is_long_mode: # long mode
+            step = step = np.random.exponential(scale=2)/l
+        else: # short mode
+            step = np.random.exponential(scale=0.5)/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            L_TRG1.append(l_trg1)
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+        
+        if count == n:
+            break
+        
+    return [np.array(T),np.array(LL),np.array(L_TRG1)]
+
 def generate_data(data_type,opt):
     def rolling_matrix(x,time_step):
             x = x.flatten()
@@ -184,7 +374,6 @@ def generate_data(data_type,opt):
         dT_train = np.ediff1d(T_train)
         opt.train_mean=dT_train.mean()
         train_data = torch.tensor(rolling_matrix(dT_train,time_step)).to(torch.double)
-        
         dT_valid = np.ediff1d(T_valid)
         valid_data = torch.tensor(rolling_matrix(dT_valid,time_step)).to(torch.double)
         dT_test = np.ediff1d(T_test)
@@ -208,7 +397,12 @@ def generate_data(data_type,opt):
         [T,score_ref]=generate_hawkes1()
     elif data_type == 'h2':
         [T,score_ref]=generate_hawkes2()
-    
+    elif data_type == 'ee':
+        [T,score_ref]=generate_eahawkes()
+    elif data_type == 'h_fix':
+        [T,score_ref]=generate_hawkes_modes()
+    elif data_type == 'h_fix05':
+        [T,score_ref]=generate_hawkes_modes05()
     n = T.shape[0]
     time_step=opt.time_step
     batch_size=opt.batch_size
@@ -241,7 +435,7 @@ def set_date_class(df,opt):
     trainloader = torch.utils.data.DataLoader(train_data,num_workers=os.cpu_count(),batch_size=opt.batch_size,pin_memory=True,shuffle=True)
     validloader = torch.utils.data.DataLoader(rT_valid,num_workers=os.cpu_count(),batch_size=opt.batch_size,pin_memory=True,shuffle=False)
     testloader = torch.utils.data.DataLoader(rT_test,num_workers=os.cpu_count(),batch_size=opt.batch_size,pin_memory=True,shuffle=False)
- 
+
     opt.train_mean=dT_train.mean()
     train_max=dT_train.max()
     train_min=dT_train.min()
@@ -392,7 +586,9 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
     valid_mae_history = [] # validation event time prediction MAE
     valid_rmse_history = []  # validation event time prediction RMSE
     valid_loss_his = []
-    
+    if opt.epoch==0:
+        torch.save(model.state_dict(), "checkpoint/tau/"+opt.wp+".pth") 
+        epoch = 0
     if opt.train==True:
         torch.backends.cudnn.benchmark = True
         es = EarlyStopping(verbose=True,path="checkpoint/tau/"+opt.wp+'.pth')
@@ -441,6 +637,7 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
         model_path="checkpoint/tau/"+opt.wp+'.pth'
         model.load_state_dict(torch.load(model_path))
         model.eval()
+        start = time.time()
         test_event, test_mae, test_rmse = eval_epoch(model, test_data, opt)
         print('  - (testing   )    Loss:{loss: 8.5f},loglikelihood: {ll: 8.5f}, '
                 ' MAE: {mae: 8.5f},'
@@ -462,6 +659,7 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
         model.load_state_dict(torch.load(model_path))
         model.eval()
         plot_code.plot_data_hist(training_data, opt)
+        plot_code.t_SNE(model,test_data,opt)
         if opt.gene=="h1":
             #plot_code.save_npy_synthetic(model,validation_data,opt)
             plot_code.Compare_event_GT_pred(model,test_data,opt)
@@ -474,8 +672,48 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
         
         plot_code.near_tau_and_vector(model,opt)
         
-        
+def test(model, training_data, validation_data ,test_data,optimizer, scheduler, opt):
+    plot_code.plot_data_hist(training_data, opt)
+    model_path="checkpoint/tau/"+opt.wp+'.pth'
+    model.load_state_dict(torch.load(model_path))
+    model.eval()
+    start = time.time()
+    test_event, test_mae, test_rmse = eval_epoch(model, test_data, opt)
+    print('  - (testing   )    Loss:{loss: 8.5f},loglikelihood: {ll: 8.5f}, '
+                ' MAE: {mae: 8.5f},'
+                ' RMSE: {rmse: 8.5f}, '
+                'elapse: {elapse:3.3f} min'
+                .format(loss=-test_event+ test_mae/opt.loss_scale, ll=test_event, mae=test_mae, rmse=test_rmse, elapse=(time.time() - start) / 60))
+    plot_code.phase_eventGT_prediction_plot(model,test_data,opt)
+    pdb.set_trace()
+    path=opt.wp
+    opt.imp="phase1"
+    opt.wp+="phase1"
+    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+".pth"))
+    plot_code.t_SNE(model,test_data,opt)
+    opt.wp=path
+    opt.imp="phase2"
+    opt.wp+="phase2"
+    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+".pth"))
+    plot_code.t_SNE(model,test_data,opt)
+    opt.wp=path
+    opt.imp="phase3"
+    opt.wp+="phase3"
+    model.load_state_dict(torch.load("checkpoint/tau/"+opt.wp+".pth"))
+    plot_code.t_SNE(model,test_data,opt)
+    opt.wp=path
     
+    """
+    if opt.gene=="h1":
+        plot_code.Compare_event_GT_pred(model,test_data,opt)
+        plot_code.synthetic_plot(model,validation_data,opt)
+    else:
+        plot_code.Compare_event_GT_pred(model,test_data,opt)
+    if opt.phase==True:
+        plot_code.phase_eventGT_prediction_plot(model, test_data,opt)
+    
+    plot_code.near_tau_and_vector(model,opt)
+    """
 #################
 ### Main
 #################
@@ -528,7 +766,7 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
 
     # default device is CUDA
     opt.device = torch.device('cuda:'+str(opt.device_num))
-    opt.log = "log/tau/"+str(opt.d_model)+'_'+str(opt.d_inner_hid)+'_'+str(opt.d_k)+'_'+str(opt.d_v)+"_"+str(opt.n_head)+'_'+opt.gene+'_'+opt.method+'_'+opt.imp+'_'+str(opt.epoch)+"_"+str(opt.time_step)+"_"+str(opt.trainvec_num)+"_"+str(opt.pooling_k)
+    opt.log = str(opt.d_model)+'_'+str(opt.d_inner_hid)+'_'+str(opt.d_k)+'_'+str(opt.d_v)+"_"+str(opt.n_head)+'_'+opt.gene+'_'+opt.method+'_'+opt.imp+'_'+str(opt.epoch)+"_"+str(opt.time_step)+"_"+str(opt.trainvec_num)+"_"+str(opt.pooling_k)
     if opt.phase==True:
         opt.log+="_phase"
     if opt.pre_attn == True:
@@ -536,7 +774,7 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
     else:
         opt.log+="_postLN"
     opt.wp = opt.log
-    opt.log+="_log.txt"
+    opt.log="log/tau/"+opt.log+"_log.txt"
     print('[Info] parameters: {}'.format(opt))
     pickle_Flag=False
     """ prepare dataloader """
@@ -544,8 +782,6 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
         df = pd.read_csv("data/date_jisin.90016")
         df["dtt64"] = pd.to_datetime(df["DateTime"])
         trainloader, validloader, testloader, opt.train_max ,opt.train_min, opt.train_med = set_date_class(df,opt)
-        opt.gene = "jisin"
-    
     elif opt.gene=="911_All":
         pickle_Flag= True
         train_path = "/data1/nishizawa/Desktop/Transtrans/Transformer-Hawkes-Process/data/Call_All100_sliding_train.pkl"
@@ -644,51 +880,52 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
     print('[Info] Number of parameters: {}'.format(num_params))
     
     """ train the model """
-    if opt.phase==True:
-        for param in model.parameters():
-            param.requires_grad = True
-        model.rep_vector.requires_grad = False
-        model.anchor_vector.requires_grad = False
-        """ optimizer and scheduler """
-        optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
-                           opt.lr, betas=(0.9, 0.999), eps=1e-05)
-    
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
-        train(model, trainloader, validloader,testloader, optimizer, scheduler, opt)
-        model_path="checkpoint/tau/"+opt.wp+'.pth'
-        temp_path="checkpoint/tau/"+opt.gene+'_'+opt.method+'_'+opt.imp+'_'+str(opt.epoch)+"_"+str(opt.time_step)
-        model.load_state_dict(torch.load(model_path))
-        torch.save(model.state_dict(), opt.wp+"phase1.pth") 
-        print("phase1 fin.")
-        for param in model.parameters():
-            param.requires_grad = True
-        model.rep_vector.requires_grad = True
-        model.anchor_vector.requires_grad = False
-        """ optimizer and scheduler """
-        optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
-                           opt.lr, betas=(0.9, 0.999), eps=1e-05)
-    
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
-        train(model, trainloader, validloader,testloader, optimizer, scheduler, opt)
-        
-        model.load_state_dict(torch.load(model_path))
-        torch.save(model.state_dict(), opt.wp+"phase2.pth") 
-        print("phase2 fin.")
-        for param in model.parameters():
-            param.requires_grad = True
-        model.rep_vector.requires_grad = False
-        model.anchor_vector.requires_grad = True
-        """ optimizer and scheduler """
-        optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
-                           opt.lr, betas=(0.9, 0.999), eps=1e-05)
-        scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
-        train(model, trainloader, validloader, testloader, optimizer, scheduler, opt)
-        model.load_state_dict(torch.load(model_path))
-        torch.save(model.state_dict(), opt.wp+"phase3.pth")
-        print("phase2 fin.")
-    else:
-        train(model, trainloader, validloader, testloader, optimizer, scheduler, opt)
+    if opt.train==True:
+        if opt.phase==True:
+            for param in model.parameters():
+                param.requires_grad = True
+            model.rep_vector.requires_grad = False
+            model.anchor_vector.requires_grad = False
+            """ optimizer and scheduler """
+            optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
+                                opt.lr, betas=(0.9, 0.999), eps=1e-05)
 
+            scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
+            train(model, trainloader, validloader,testloader, optimizer, scheduler, opt)
+            model_path="checkpoint/tau/"+opt.wp+'.pth'
+            model.load_state_dict(torch.load(model_path))
+            torch.save(model.state_dict(), "checkpoint/tau/"+opt.wp+"phase1.pth") 
+            print("phase1 fin.")
+            for param in model.parameters():
+                param.requires_grad = True
+            model.rep_vector.requires_grad = True
+            model.anchor_vector.requires_grad = False
+            """ optimizer and scheduler """
+            optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
+                                opt.lr, betas=(0.9, 0.999), eps=1e-05)
+
+            scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
+            train(model, trainloader, validloader,testloader, optimizer, scheduler, opt)
+            
+            model.load_state_dict(torch.load(model_path))
+            torch.save(model.state_dict(), "checkpoint/tau/"+opt.wp+"phase2.pth") 
+            print("phase2 fin.")
+            for param in model.parameters():
+                param.requires_grad = True
+            model.rep_vector.requires_grad = False
+            model.anchor_vector.requires_grad = True
+            """ optimizer and scheduler """
+            optimizer = optim.Adam(filter(lambda x: x.requires_grad, model.parameters()),
+                                opt.lr, betas=(0.9, 0.999), eps=1e-05)
+            scheduler = optim.lr_scheduler.StepLR(optimizer, 10, gamma=0.5)
+            train(model, trainloader, validloader, testloader, optimizer, scheduler, opt)
+            model.load_state_dict(torch.load(model_path))
+            torch.save(model.state_dict(), "checkpoint/tau/"+opt.wp+"phase3.pth")
+            print("phase3 fin.")
+        else:
+            train(model, trainloader, validloader, testloader, optimizer, scheduler, opt)
+    else:
+        test(model, trainloader, validloader, testloader, optimizer, scheduler, opt)
 if __name__ == '__main__':
     plt.switch_backend('agg')
     plt.figure()

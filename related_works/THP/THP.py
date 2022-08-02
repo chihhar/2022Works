@@ -1,5 +1,6 @@
 import os
 import pdb
+import sys
 import time
 import pickle
 import argparse
@@ -18,6 +19,7 @@ from scipy.stats import lognorm,gamma
 from scipy.optimize import brentq
 from datetime import datetime as dt
 
+import THP_plot_code
 ######################################################
 ### Data Generator
 ######################################################
@@ -165,6 +167,126 @@ def simulate_hawkes(n,mu,alpha,beta):
         
     return [np.array(T),np.array(LL)]
 
+def generate_hawkes_modes():
+    np.random.seed(seed=32)
+    [T,LL,L_TRG1] = simulate_hawkes_modes(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return [T,score]
+
+def simulate_hawkes_modes(n,mu,alpha,beta,short_thre=1,long_thre=5):
+    T = []
+    LL = []
+    L_TRG1 = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    is_long_mode = 0
+    
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        #step = np.random.exponential(scale=1)/l
+
+        if l_trg1 > long_thre:
+            is_long_mode = 1
+
+        if l_trg1 < short_thre:
+            is_long_mode = 0
+
+        if is_long_mode: # long mode
+            step = step = np.random.exponential(scale=2)/l
+        else: # short mode
+            step = np.random.exponential(scale=0.5)/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            L_TRG1.append(l_trg1)
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+        
+        if count == n:
+            break
+        
+    return [np.array(T),np.array(LL),np.array(L_TRG1)]
+
+def generate_hawkes_modes05():
+    np.random.seed(seed=32)
+    [T,LL,L_TRG1] = simulate_hawkes_modes05(100000,0.2,[0.8,0.0],[1.0,20.0])
+    score = - LL[80000:].mean()
+    return [T,score]
+
+def simulate_hawkes_modes05(n,mu,alpha,beta,short_thre=1,long_thre=5):
+    T = []
+    LL = []
+    L_TRG1 = []
+    
+    x = 0
+    l_trg1 = 0
+    l_trg2 = 0
+    l_trg_Int1 = 0
+    l_trg_Int2 = 0
+    mu_Int = 0
+    count = 0
+    is_long_mode = 0
+    
+    while 1:
+        l = mu + l_trg1 + l_trg2
+        #step = np.random.exponential(scale=1)/l
+
+        if l_trg1 > long_thre:
+            is_long_mode = 1
+
+        if l_trg1 < short_thre:
+            is_long_mode = 0
+
+        if is_long_mode: # long mode
+            step = step = np.random.exponential(scale=2)/l
+        else: # short mode
+            step = np.random.exponential(scale=0.25)/l
+
+        x = x + step
+        
+        l_trg_Int1 += l_trg1 * ( 1 - np.exp(-beta[0]*step) ) / beta[0]
+        l_trg_Int2 += l_trg2 * ( 1 - np.exp(-beta[1]*step) ) / beta[1]
+        mu_Int += mu * step
+        l_trg1 *= np.exp(-beta[0]*step)
+        l_trg2 *= np.exp(-beta[1]*step)
+        l_next = mu + l_trg1 + l_trg2
+        
+        if np.random.rand() < l_next/l: #accept
+            T.append(x)
+            LL.append( np.log(l_next) - l_trg_Int1 - l_trg_Int2 - mu_Int )
+            L_TRG1.append(l_trg1)
+            l_trg1 += alpha[0]*beta[0]
+            l_trg2 += alpha[1]*beta[1]
+            l_trg_Int1 = 0
+            l_trg_Int2 = 0
+            mu_Int = 0
+            count += 1
+        
+        if count == n:
+            break
+        
+    return [np.array(T),np.array(LL),np.array(L_TRG1)]
+
 def generate_data(data_type,opt):
     def rolling_matrix(x,time_step):
             x = x.flatten()
@@ -205,7 +327,10 @@ def generate_data(data_type,opt):
         [T,score_ref]=generate_hawkes1()
     elif data_type == 'h2':
         [T,score_ref]=generate_hawkes2()
-    
+    elif data_type == 'h_fix':
+        [T,score_ref]=generate_hawkes_modes()
+    elif data_type == 'h_fix05':
+        [T,score_ref]=generate_hawkes_modes05()
     n = T.shape[0]
     time_step=opt.time_step
     batch_size=opt.batch_size
@@ -353,10 +478,8 @@ def eval_epoch(model, validation_data, opt):
         for batch in tqdm(validation_data, mininterval=2,
                           desc='  - (Validation) ', leave=False):
             """ prepare data """
-            if opt.train==True:
-                event_time = batch.to(opt.device,non_blocking=True)
-            else:
-                event_time = batch.to(opt.device,non_blocking=True)
+            
+            event_time = batch.to(opt.device,non_blocking=True)
             train_input = event_time[:,:-1]
             train_target = event_time[:,-1:]
 
@@ -463,13 +586,15 @@ def test_step(model, training_data, validation_data, test_data, optimizer, sched
     model.load_state_dict(torch.load(model_path))
     model.eval()
     start = time.time()
-    valid_event, valid_mae, valid_rmse = eval_epoch(model, test_data, opt)
+    test_event, test_mae, test_rmse = eval_epoch(model, test_data, opt)
     print('  - (Testing)     loglikelihood: {ll: 8.5f}, '
-            ' MAE: {mae: 8.5f},'
-            ' RMSE: {rmse: 8.5f}, '
-            'elapse: {elapse:3.3f} min'
-            .format(ll=valid_event, mae=valid_mae, rmse=valid_rmse, elapse=(time.time() - start) / 60))
-    
+        ' MAE: {mae: 8.5f},'
+        ' RMSE: {rmse: 8.5f}, '
+        'elapse: {elapse:3.3f} min'
+        .format(ll=test_event, mae=test_mae, rmse=test_rmse, elapse=(time.time() - start) / 60))
+    #THP_plot_code.t_SNE(model,test_data,opt)
+    THP_plot_code.Compare_event_GT_pred(model,test_data,opt)
+
 #################
 ### python Main.py -gene=h1 --train --pre_attn
 ### python Main.py -gene=jisin --pre_attn  --train
@@ -520,7 +645,7 @@ def main():
     opt = parser.parse_args()
 
     # default device is CUDA
-    opt.device = torch.device('cuda:1')
+    opt.device = torch.device('cuda:0')
     
     print('[Info] parameters: {}'.format(opt))
 
