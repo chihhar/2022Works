@@ -673,7 +673,7 @@ def train(model, training_data, validation_data ,test_data,optimizer, scheduler,
         plot_code.near_tau_and_vector(model,opt)
         
 def test(model, training_data, validation_data ,test_data,optimizer, scheduler, opt):
-    plot_code.plot_data_hist(training_data, opt)
+    #plot_code.plot_data_hist(training_data, opt)
     model_path="checkpoint/tau/"+opt.wp+'.pth'
     model.load_state_dict(torch.load(model_path))
     model.eval()
@@ -684,7 +684,7 @@ def test(model, training_data, validation_data ,test_data,optimizer, scheduler, 
                 ' RMSE: {rmse: 8.5f}, '
                 'elapse: {elapse:3.3f} min'
                 .format(loss=-test_event+ test_mae/opt.loss_scale, ll=test_event, mae=test_mae, rmse=test_rmse, elapse=(time.time() - start) / 60))
-    plot_code.phase_eventGT_prediction_plot(model,test_data,opt)
+    #plot_code.phase_eventGT_prediction_plot(model,test_data,opt)
     pdb.set_trace()
     path=opt.wp
     opt.imp="phase1"
@@ -761,7 +761,7 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
     parser.add_argument("--phase",action="store_true")
     parser.add_argument("--grad_log",action="store_true")
     parser.add_argument("-wp",type=str, default="_")
-    parser.add_argument("-device_num",type=int, default=0)
+    parser.add_argument("-device_num",type=int, default=1)
     opt = parser.parse_args()
 
     # default device is CUDA
@@ -894,6 +894,7 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
             train(model, trainloader, validloader,testloader, optimizer, scheduler, opt)
             model_path="checkpoint/tau/"+opt.wp+'.pth'
             model.load_state_dict(torch.load(model_path))
+            
             torch.save(model.state_dict(), "checkpoint/tau/"+opt.wp+"phase1.pth") 
             print("phase1 fin.")
             for param in model.parameters():

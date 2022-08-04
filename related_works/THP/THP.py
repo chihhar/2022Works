@@ -593,7 +593,7 @@ def test_step(model, training_data, validation_data, test_data, optimizer, sched
         'elapse: {elapse:3.3f} min'
         .format(ll=test_event, mae=test_mae, rmse=test_rmse, elapse=(time.time() - start) / 60))
     #THP_plot_code.t_SNE(model,test_data,opt)
-    THP_plot_code.Compare_event_GT_pred(model,test_data,opt)
+    #THP_plot_code.Compare_event_GT_pred(model,test_data,opt)
 
 #################
 ### python Main.py -gene=h1 --train --pre_attn
@@ -645,7 +645,7 @@ def main():
     opt = parser.parse_args()
 
     # default device is CUDA
-    opt.device = torch.device('cuda:0')
+    opt.device = torch.device('cuda:1')
     
     print('[Info] parameters: {}'.format(opt))
 

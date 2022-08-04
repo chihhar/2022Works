@@ -121,36 +121,39 @@
 #############################        
 #############################
 # FT-PP
+#### Option
+    -model:ハザード関数モデルの変更
+            ex:-model={'const','exp','pc',default='omi',}
 ### Hawkes過程
     学習:
-        python omi.py -gene=h1 --train=True
+        python omi.py -gene=h1 --train=True -model=omi
     テスト:
-        python omi.py -gene=h1 --train=False
+        python omi.py -gene=h1 --train=False -model=omi
 ### カリフォルニア地震
     学習:
-        python omi.py -gene=jisin --train=True
+        python omi.py -gene=jisin --train=True -model=omi
     テスト:
-        python omi.py -gene=jisin --train=False
+        python omi.py -gene=jisin --train=False -model=omi
 ### 911_All
     学習:
-        python omi.py -gene=911_All --train=True
+        python omi.py -gene=911_All --train=True -model=omi
     テスト:
-        python omi.py -gene=911_All --train=False
+        python omi.py -gene=911_All --train=False -model=omi
 ### 911_1
     学習:
-        python omi.py -gene=911_1 --train=True
+        python omi.py -gene=911_1 --train=True -model=omi
     テスト:
-        python omi.py -gene=911_1 --train=False
+        python omi.py -gene=911_1 --train=False -model=omi
 ### 911_50
     学習:
-        python omi.py -gene=911_50 --train=True
+        python omi.py -gene=911_50 --train=True -model=omi
     テスト:
-        python omi.py -gene=911_50 --train=False
+        python omi.py -gene=911_50 --train=False -model=omi
 ### 911_100
     学習:
-        python omi.py -gene=911_100 --train=True
+        python omi.py -gene=911_100 --train=True -model=omi
     テスト:
-        python omi.py -gene=911_100 --train=False
+        python omi.py -gene=911_100 --train=False -model=omi
 #############################
 # ファイル概要
     Main.py:
