@@ -1,4 +1,6 @@
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 import argparse
 #%%
 import numpy as np
@@ -761,7 +763,7 @@ def main():#python Main.py --pre_attn -imp=pre3_3 -trainvec_num=3 -pooling_k=3 -
     parser.add_argument("--phase",action="store_true")
     parser.add_argument("--grad_log",action="store_true")
     parser.add_argument("-wp",type=str, default="_")
-    parser.add_argument("-device_num",type=int, default=1)
+    parser.add_argument("-device_num",type=int, default=0)
     opt = parser.parse_args()
 
     # default device is CUDA

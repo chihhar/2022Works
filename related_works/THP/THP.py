@@ -547,8 +547,11 @@ def train(model, training_data, validation_data, test_data, optimizer, scheduler
 
             # logging
             with open(opt.log, 'a') as f:
-                f.write('{epoch}, {ll: 8.5f}, {mae: 8.5f}, {rmse: 8.5f}\n'
-                    .format(epoch=epoch, ll=valid_event, mae=valid_mae, rmse=valid_rmse))
+                f.write("train     : "+'{epoch}, {loss: 8.5f}, {ll: 8.5f}, {mae: 8.5f}, {rmse: 8.5f}\n'
+                    .format(epoch=epoch,loss=-train_event+train_mae/opt.loss_scale, ll=train_event, mae=train_mae, rmse=train_rmse))
+                f.write("validation: "+'{epoch}, {loss: 8.5f}, {ll: 8.5f}, {mae: 8.5f}, {rmse: 8.5f}\n\n'
+                    .format(epoch=epoch,loss=-valid_event+ valid_mae/opt.loss_scale, ll=valid_event, mae=valid_mae, rmse=valid_rmse))
+            
 
             scheduler.step()
             print(valid_event)
@@ -645,7 +648,7 @@ def main():
     opt = parser.parse_args()
 
     # default device is CUDA
-    opt.device = torch.device('cuda:1')
+    opt.device = torch.device('cuda:0')
     
     print('[Info] parameters: {}'.format(opt))
 
